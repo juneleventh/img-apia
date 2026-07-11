@@ -228,7 +228,7 @@ def coerce(value, typ):
             if isinstance(value, bool):
                 return value
             return str(value).strip().lower() in ("true", "1", "yes", "y")
-         if t == "date":
+        if t == "date":
             s = str(value).strip()
 
             

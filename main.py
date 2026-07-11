@@ -3,6 +3,7 @@ from statistics import mean, median, pstdev, pvariance, mode
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from datetime import datetime
 import httpx
 import config
 app = FastAPI()
@@ -228,7 +229,14 @@ def coerce(value, typ):
                 return value
             return str(value).strip().lower() in ("true", "1", "yes", "y")
         if t == "date":
-            return str(value).strip()                     # already asked as YYYY-MM-DD
+            return str(value).strip()   # already asked as YYYY-MM-DD
+        if t == "time":
+            s = str(value).strip().replace("Z", "+00:00")
+            try:
+                return datetime.fromisoformat(s).strftime("%H:%M")
+            except ValueError:
+                # Already HH:MM or another format
+                return s[:5]
         if t == "array[integer]":
             lst = value if isinstance(value, list) else [value]
             return [int(round(float(x))) for x in lst]

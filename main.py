@@ -228,15 +228,41 @@ def coerce(value, typ):
             if isinstance(value, bool):
                 return value
             return str(value).strip().lower() in ("true", "1", "yes", "y")
-        if t == "date":
-            return str(value).strip()   # already asked as YYYY-MM-DD
-        if t == "time":
-            s = str(value).strip().replace("Z", "+00:00")
+         if t == "date":
+            s = str(value).strip()
+
+            
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
+                return s
+
+            
             try:
-                return datetime.fromisoformat(s).strftime("%H:%M")
-            except ValueError:
-                # Already HH:MM or another format
-                return s[:5]
+                return datetime.fromisoformat(
+                    s.replace("Z", "+00:00")
+                ).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+
+            return s
+
+        if t == "time":
+            s = str(value).strip()
+
+            # ISO timestamp or datetime
+            try:
+                return datetime.fromisoformat(
+                    s.replace("Z", "+00:00")
+                ).strftime("%H:%M")
+            except Exception:
+                pass
+
+            
+            m = re.search(r"\b(\d{1,2}):(\d{2})\b", s)
+            if m:
+                return f"{int(m.group(1)):02d}:{m.group(2)}"
+
+            return None
+               
         if t == "array[integer]":
             lst = value if isinstance(value, list) else [value]
             return [int(round(float(x))) for x in lst]
@@ -258,10 +284,14 @@ async def dynamic_extract(request: Request):
     prompt = (
         "Extract variables from the text. Return JSON with EXACTLY these keys:\n"
         f"{json.dumps(schema, indent=2)}\n\n"
-        "Rules: dates -> ISO YYYY-MM-DD; integer/float -> JSON numbers (not "
-        "strings); boolean -> true/false; array[...] -> JSON array; if a field "
-        "cannot be found use null. Extract the SHORTEST exact value (e.g. for a "
-        "name give just the name).\n\n"
+        "Rules:\n"
+        "- date -> YYYY-MM-DD\n"
+        "- time -> HH:MM (24-hour, no seconds, no date)\n"
+        "- integer/float -> JSON numbers (not strings)\n"
+        "- boolean -> true/false\n"
+        "- array[...] -> JSON array\n"
+        "- if a field cannot be found, use null\n"
+        "- Return ONLY valid JSON, no explanation.\n\n"
         f"TEXT:\n{text}"
     )
     try:
